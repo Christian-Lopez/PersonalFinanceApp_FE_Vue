@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import api from '../lib/api'
@@ -10,11 +10,15 @@ const authStore = useAuthStore()
 
 // State
 const accounts = ref<any[]>([])
+const categories = ref<any[]>([])
 const selectedAccount = ref<any>(null)
 const transactions = ref<any[]>([])
 const isLoading = ref(true)
 const isSubmitting = ref(false)
 const showNewTransactionModal = ref(false)
+
+// Transaction vs Transfer Tab
+const activeTab = ref<'transaction' | 'transfer'>('transaction')
 
 // Transaction Creation State
 const newTransaction = ref({
@@ -22,15 +26,35 @@ const newTransaction = ref({
   type: 2, // Expense
   transactionDate: new Date().toISOString().split('T')[0],
   description: '',
-  categoryId: null
+  categoryId: ''
+})
+
+// Transfer Creation State
+const newTransfer = ref({
+  amount: 0,
+  toAccountId: '',
+  transactionDate: new Date().toISOString().split('T')[0],
+  description: ''
+})
+
+const groupedCategories = computed(() => {
+  const parents = categories.value.filter(c => !c.parentCategoryId)
+  return parents.map(parent => ({
+    ...parent,
+    children: categories.value.filter(c => c.parentCategoryId === parent.id)
+  }))
 })
 
 const loadData = async () => {
   isLoading.value = true
   try {
-    // 1. Fetch Accounts
-    const accountsRes = await api.get('/accounts')
+    const [accountsRes, categoriesRes] = await Promise.all([
+      api.get('/accounts'),
+      api.get('/categories')
+    ])
+    
     accounts.value = accountsRes.data
+    categories.value = categoriesRes.data
     
     if (accounts.value.length > 0) {
       if (!selectedAccount.value || !accounts.value.find(a => a.id === selectedAccount.value.id)) {
@@ -60,21 +84,31 @@ const loadTransactions = async (accountId: string) => {
   }
 }
 
+const submitForm = async () => {
+  if (activeTab.value === 'transaction') {
+    await createTransaction()
+  } else {
+    await createTransfer()
+  }
+}
+
 const createTransaction = async () => {
   isSubmitting.value = true
   try {
     await api.post('/transactions', {
-      ...newTransaction.value,
-      accountId: selectedAccount.value.id,
-      transactionDate: new Date(newTransaction.value.transactionDate).toISOString()
+      amount: newTransaction.value.amount,
+      type: newTransaction.value.type,
+      transactionDate: new Date(newTransaction.value.transactionDate).toISOString(),
+      description: newTransaction.value.description,
+      categoryId: newTransaction.value.categoryId || null,
+      accountId: selectedAccount.value.id
     })
-    showNewTransactionModal.value = false
     
-    // Reset form
+    showNewTransactionModal.value = false
     newTransaction.value.amount = 0
     newTransaction.value.description = ''
+    newTransaction.value.categoryId = ''
     
-    // Reload transactions
     await loadTransactions(selectedAccount.value.id)
   } catch (err) {
     console.error('Error creating transaction', err)
@@ -83,8 +117,69 @@ const createTransaction = async () => {
   }
 }
 
+const createTransfer = async () => {
+  if (!newTransfer.value.toAccountId || newTransfer.value.toAccountId === selectedAccount.value.id) {
+    alert("Please select a valid destination account.")
+    return
+  }
+  
+  isSubmitting.value = true
+  try {
+    await api.post('/transactions/transfer', {
+      fromAccountId: selectedAccount.value.id,
+      toAccountId: newTransfer.value.toAccountId,
+      amount: newTransfer.value.amount,
+      transactionDate: new Date(newTransfer.value.transactionDate).toISOString(),
+      description: newTransfer.value.description
+    })
+    
+    showNewTransactionModal.value = false
+    newTransfer.value.amount = 0
+    newTransfer.value.description = ''
+    newTransfer.value.toAccountId = ''
+    
+    await loadTransactions(selectedAccount.value.id)
+  } catch (err) {
+    console.error('Error creating transfer', err)
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+// Helpers
+const getTypeName = (type: number | string) => {
+  if (type === 1 || type === 'Income') return 'Income'
+  if (type === 2 || type === 'Expense') return 'Expense'
+  if (type === 3 || type === 'Transfer') return 'Transfer'
+  return 'Unknown'
+}
+
+const getTypeBadgeClass = (type: number | string) => {
+  const name = getTypeName(type)
+  if (name === 'Income') return 'bg-emerald-100 text-emerald-800'
+  if (name === 'Expense') return 'bg-rose-100 text-rose-800'
+  if (name === 'Transfer') return 'bg-blue-100 text-blue-800'
+  return 'bg-gray-100 text-gray-800'
+}
+
+const getTypeAmountClass = (type: number | string) => {
+  const name = getTypeName(type)
+  if (name === 'Income') return 'text-emerald-600'
+  if (name === 'Transfer') return 'text-blue-600'
+  return 'text-gray-900' // Expense is default text color
+}
+
+const getAmountPrefix = (type: number | string) => {
+  const name = getTypeName(type)
+  if (name === 'Income') return '+'
+  if (name === 'Expense') return '-'
+  return ''
+}
+
 // Format currency
 const formatCurrency = (amount: number) => {
+  return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
+}
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount)
 }
 
@@ -157,13 +252,13 @@ onMounted(() => {
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{{ t.description }}</td>
               <td class="px-6 py-4 whitespace-nowrap text-sm">
                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" 
-                      :class="(t.type === 'Income' || t.type === 1) ? 'bg-emerald-100 text-emerald-800' : 'bg-rose-100 text-rose-800'">
-                  {{ (t.type === 'Income' || t.type === 1) ? 'Income' : 'Expense' }}
+                      :class="getTypeBadgeClass(t.type)">
+                  {{ getTypeName(t.type) }}
                 </span>
               </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm text-right font-medium"
-                  :class="(t.type === 'Income' || t.type === 1) ? 'text-emerald-600' : 'text-gray-900'">
-                {{ (t.type === 'Income' || t.type === 1) ? '+' : '-' }}{{ formatCurrency(t.amount) }}
+                  :class="getTypeAmountClass(t.type)">
+                {{ getAmountPrefix(t.type) }}{{ formatCurrency(t.amount) }}
               </td>
             </tr>
           </tbody>
@@ -171,7 +266,7 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- Modal for New Transaction -->
+    <!-- Modal for New Transaction / Transfer -->
     <div v-if="showNewTransactionModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
@@ -181,37 +276,93 @@ onMounted(() => {
           </button>
         </div>
         
-        <form @submit.prevent="createTransaction" class="p-6 space-y-4">
-          <div class="grid grid-cols-2 gap-4">
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-200 bg-gray-50">
+          <button @click="activeTab = 'transaction'" class="flex-1 py-3 text-sm font-medium text-center transition" :class="activeTab === 'transaction' ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-gray-500 hover:text-gray-700'">
+            Standard
+          </button>
+          <button @click="activeTab = 'transfer'" class="flex-1 py-3 text-sm font-medium text-center transition" :class="activeTab === 'transfer' ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-gray-500 hover:text-gray-700'">
+            Transfer
+          </button>
+        </div>
+        
+        <form @submit.prevent="submitForm" class="p-6 space-y-4">
+          
+          <template v-if="activeTab === 'transaction'">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Type</label>
+                <select v-model.number="newTransaction.type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500">
+                  <option :value="1">Income</option>
+                  <option :value="2">Expense</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Amount</label>
+                <input v-model.number="newTransaction.amount" type="number" step="0.01" min="0.01" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
+              </div>
+            </div>
+            
             <div>
-              <label class="block text-sm font-medium text-gray-700">Type</label>
-              <select v-model.number="newTransaction.type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500">
-                <option :value="1">Income</option>
-                <option :value="2">Expense</option>
+              <label class="block text-sm font-medium text-gray-700">Category</label>
+              <select v-model="newTransaction.categoryId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500">
+                <option value="">-- None --</option>
+                <optgroup v-for="group in groupedCategories" :key="group.id" :label="group.name">
+                  <option v-for="sub in group.children" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
+                </optgroup>
               </select>
             </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Date</label>
+              <input v-model="newTransaction.transactionDate" type="date" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Description</label>
+              <input v-model="newTransaction.description" type="text" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
+            </div>
+          </template>
+
+          <template v-if="activeTab === 'transfer'">
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">From</label>
+                <input :value="selectedAccount?.name" disabled class="mt-1 block w-full rounded-md border-gray-200 shadow-sm p-2 border bg-gray-50 text-gray-500 cursor-not-allowed" />
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">To Account</label>
+                <select v-model="newTransfer.toAccountId" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500">
+                  <option value="" disabled>Select...</option>
+                  <option v-for="acc in accounts.filter(a => a.id !== selectedAccount?.id)" :key="acc.id" :value="acc.id">
+                    {{ acc.name }}
+                  </option>
+                </select>
+              </div>
+            </div>
+            
             <div>
               <label class="block text-sm font-medium text-gray-700">Amount</label>
-              <input v-model.number="newTransaction.amount" type="number" step="0.01" min="0.01" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
+              <input v-model.number="newTransfer.amount" type="number" step="0.01" min="0.01" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
             </div>
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Date</label>
-            <input v-model="newTransaction.transactionDate" type="date" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
-          </div>
-          
-          <div>
-            <label class="block text-sm font-medium text-gray-700">Description</label>
-            <input v-model="newTransaction.description" type="text" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
-          </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Date</label>
+              <input v-model="newTransfer.transactionDate" type="date" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
+            </div>
+            
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Memo (Optional)</label>
+              <input v-model="newTransfer.description" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
+            </div>
+          </template>
           
           <div class="pt-4 flex justify-end gap-3">
             <button type="button" @click="showNewTransactionModal = false" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
               Cancel
             </button>
             <button type="submit" :disabled="isSubmitting" class="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-              Save Transaction
+              Save {{ activeTab === 'transfer' ? 'Transfer' : 'Transaction' }}
             </button>
           </div>
         </form>

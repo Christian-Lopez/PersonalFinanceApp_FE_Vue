@@ -119,8 +119,8 @@ onMounted(() => {
         </div>
         <div>
           <p class="text-sm font-medium text-gray-500 mb-1">Current Balance</p>
-          <p class="text-3xl font-bold" :class="acc.currentBalance < 0 ? 'text-rose-600' : 'text-gray-900'">
-            {{ formatCurrency(acc.currentBalance, acc.currency) }}
+          <p class="text-3xl font-bold" :class="acc.balance < 0 ? 'text-rose-600' : 'text-gray-900'">
+            {{ formatCurrency(acc.balance, acc.currency) }}
           </p>
         </div>
       </div>
