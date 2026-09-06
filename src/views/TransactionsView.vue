@@ -439,8 +439,8 @@ onMounted(() => {
             </div>
             
             <div>
-              <label class="block text-sm font-medium text-gray-700">Description</label>
-              <input v-model="newTransaction.description" type="text" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
+              <label class="block text-sm font-medium text-gray-700">Description (Optional)</label>
+              <input v-model="newTransaction.description" type="text" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
             </div>
           </template>
 

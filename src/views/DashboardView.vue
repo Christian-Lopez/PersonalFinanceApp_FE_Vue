@@ -9,7 +9,7 @@ const router = useRouter()
 const authStore = useAuthStore()
 
 // State for reports
-const summary = ref({ totalIncome: 0, totalExpenses: 0, netSavings: 0 })
+const summary = ref({ totalIncome: 0, totalExpense: 0, netSavings: 0 })
 const isLoading = ref(true)
 const error = ref<string | null>(null)
 const noAccounts = ref(false)
@@ -96,7 +96,7 @@ onMounted(() => {
             <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"></path></svg>
           </div>
         </div>
-        <p class="mt-4 text-3xl font-bold text-gray-900">{{ formatCurrency(summary.totalExpenses) }}</p>
+        <p class="mt-4 text-3xl font-bold text-gray-900">{{ formatCurrency(summary.totalExpense) }}</p>
       </div>
       
       <!-- Net Savings Card -->
