@@ -45,6 +45,8 @@ const openCreateModal = () => {
 }
 
 const openEditModal = (category: any) => {
+  if (category.isSystem && !authStore.isAdmin) return;
+
   isEditing.value = true
   editingId.value = category.id
   newCategory.value = {
@@ -176,7 +178,7 @@ onMounted(() => {
             {{ group.children.length }} subs
           </span>
           <!-- Edit Button for Parent -->
-          <button @click="openEditModal(group)" class="absolute right-2 top-2 p-1 text-gray-300 hover:text-blue-600 opacity-0 group-hover/card:opacity-100 transition-opacity">
+          <button v-if="!group.isSystem || authStore.isAdmin" @click="openEditModal(group)" class="absolute right-2 top-2 p-1 text-gray-300 hover:text-blue-600 opacity-0 group-hover/card:opacity-100 transition-opacity">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
           </button>
         </div>
@@ -188,11 +190,12 @@ onMounted(() => {
           </div>
           <div v-else class="flex flex-wrap gap-2">
             <span v-for="sub in group.children" :key="sub.id" 
-                  class="inline-flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium bg-white border border-gray-200 text-gray-700 shadow-sm group/pill cursor-pointer hover:border-blue-300"
+                  class="inline-flex items-center px-2.5 py-1.5 rounded-md text-sm font-medium bg-white border border-gray-200 text-gray-700 shadow-sm group/pill"
+                  :class="!sub.isSystem || authStore.isAdmin ? 'cursor-pointer hover:border-blue-300' : 'cursor-default'"
                   @click="openEditModal(sub)">
               <div v-if="sub.colorHex !== group.colorHex" class="w-2 h-2 rounded-full mr-1.5" :style="{ backgroundColor: sub.colorHex }"></div>
               {{ sub.name }}
-              <svg class="w-3 h-3 ml-1.5 text-gray-300 opacity-0 group-hover/pill:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+              <svg v-if="!sub.isSystem || authStore.isAdmin" class="w-3 h-3 ml-1.5 text-gray-300 opacity-0 group-hover/pill:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
             </span>
           </div>
         </div>

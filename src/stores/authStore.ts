@@ -9,6 +9,27 @@ export const useAuthStore = defineStore('auth', () => {
 
   // Getters
   const isAuthenticated = computed(() => !!token.value);
+  
+  const user = computed(() => {
+    if (!token.value) return null;
+    try {
+      const payload = token.value.split('.')[1];
+      const base64 = payload.replace(/-/g, '+').replace(/_/g, '/');
+      const jsonPayload = decodeURIComponent(atob(base64).split('').map(function(c) {
+          return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+      }).join(''));
+      return JSON.parse(jsonPayload);
+    } catch {
+      return null;
+    }
+  });
+
+  const isAdmin = computed(() => {
+    if (!user.value) return false;
+    const roles = user.value['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
+    if (Array.isArray(roles)) return roles.includes('Admin');
+    return roles === 'Admin';
+  });
 
   // Actions
   async function login(email: string, password: string) {
@@ -35,5 +56,5 @@ export const useAuthStore = defineStore('auth', () => {
     localStorage.removeItem('token');
   }
 
-  return { token, error, isAuthenticated, login, logout };
+  return { token, error, isAuthenticated, user, isAdmin, login, logout };
 });
