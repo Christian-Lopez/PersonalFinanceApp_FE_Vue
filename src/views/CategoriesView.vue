@@ -54,6 +54,15 @@ const openEditModal = (category: any) => {
   showCategoryModal.value = true
 }
 
+const handleParentChange = () => {
+  if (newCategory.value.parentCategoryId) {
+    const parent = categories.value.find(c => c.id === newCategory.value.parentCategoryId)
+    if (parent && parent.colorHex) {
+      newCategory.value.colorHex = parent.colorHex
+    }
+  }
+}
+
 const submitCategory = async () => {
   isSubmitting.value = true
   try {
@@ -215,7 +224,7 @@ onMounted(() => {
 
             <div>
               <label class="block text-sm font-medium text-gray-700">Parent Category</label>
-              <select v-model="newCategory.parentCategoryId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500">
+              <select v-model="newCategory.parentCategoryId" @change="handleParentChange" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500">
                 <option value="">-- Main Category --</option>
                 <option v-for="parent in categories.filter(c => !c.parentCategoryId)" :key="parent.id" :value="parent.id">
                   {{ parent.name }} ({{ parent.isSystem ? 'System' : 'Custom' }})
