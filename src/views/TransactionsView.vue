@@ -73,6 +73,9 @@ const loadData = async () => {
   }
 }
 
+const isEditing = ref(false)
+const editingId = ref<string | null>(null)
+
 const handleAccountChange = async () => {
   if (selectedAccount.value) {
     await loadTransactions(selectedAccount.value.id)
@@ -88,18 +91,48 @@ const loadTransactions = async (accountId: string) => {
   }
 }
 
+const openCreateModal = () => {
+  isEditing.value = false
+  editingId.value = null
+  activeTab.value = 'transaction'
+  newTransaction.value = {
+    amount: 0,
+    type: 2,
+    transactionDate: new Date().toISOString().split('T')[0],
+    description: '',
+    categoryId: '',
+    tagIds: []
+  }
+  showNewTransactionModal.value = true
+}
+
+const openEditModal = (t: any) => {
+  isEditing.value = true
+  editingId.value = t.id
+  activeTab.value = 'transaction' // Force standard tab for edits
+  newTransaction.value = {
+    amount: t.amount,
+    type: t.type === 'Income' ? 1 : 2,
+    transactionDate: t.transactionDate.split('T')[0],
+    description: t.description || '',
+    categoryId: t.categoryId || '',
+    tagIds: t.tags ? t.tags.map((tag: any) => tag.id) : []
+  }
+  showNewTransactionModal.value = true
+}
+
 const submitForm = async () => {
   if (activeTab.value === 'transaction') {
-    await createTransaction()
+    await saveTransaction()
   } else {
     await createTransfer()
   }
 }
 
-const createTransaction = async () => {
+const saveTransaction = async () => {
   isSubmitting.value = true
   try {
-    await api.post('/transactions', {
+    const payload = {
       amount: newTransaction.value.amount,
       type: newTransaction.value.type,
       transactionDate: new Date(newTransaction.value.transactionDate).toISOString(),
@@ -107,7 +140,16 @@ const createTransaction = async () => {
       categoryId: newTransaction.value.categoryId || null,
       tagIds: newTransaction.value.tagIds,
       accountId: selectedAccount.value.id
-    })
+    }
+
+    if (isEditing.value && editingId.value) {
+      await api.put(`/transactions/${editingId.value}`, {
+        id: editingId.value,
+        ...payload
+      })
+    } else {
+      await api.post('/transactions', payload)
+    }
     
     showNewTransactionModal.value = false
     newTransaction.value.amount = 0
@@ -117,9 +159,22 @@ const createTransaction = async () => {
     
     await loadTransactions(selectedAccount.value.id)
   } catch (err) {
-    console.error('Error creating transaction', err)
+    console.error('Error saving transaction', err)
   } finally {
     isSubmitting.value = false
+  }
+}
+
+const deleteTransaction = async (id: string) => {
+  if (!confirm("Are you sure you want to delete this transaction? This will automatically update your account balance.")) return
+  
+  try {
+    await api.delete(`/transactions/${id}`)
+    showNewTransactionModal.value = false
+    await loadTransactions(selectedAccount.value.id)
+  } catch (err) {
+    console.error('Error deleting transaction', err)
+    alert("Failed to delete transaction.")
   }
 }
 
@@ -228,7 +283,7 @@ onMounted(() => {
             </select>
           </div>
         </div>
-        <button @click="showNewTransactionModal = true" class="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-medium hover:bg-blue-700 flex items-center gap-2">
+        <button @click="openCreateModal" class="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-medium hover:bg-blue-700 flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
           Add Transaction
         </button>
@@ -251,7 +306,7 @@ onMounted(() => {
                 No transactions found. Click "Add Transaction" to create one.
               </td>
             </tr>
-            <tr v-for="t in transactions" :key="t.id" class="hover:bg-gray-50">
+            <tr v-for="t in transactions" :key="t.id" class="hover:bg-gray-50 cursor-pointer transition-colors" @click="openEditModal(t)">
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ formatDate(t.transactionDate) }}</td>
               <td class="px-6 py-4 text-sm text-gray-900 font-medium">
                 {{ t.description }}
@@ -281,14 +336,14 @@ onMounted(() => {
     <div v-if="showNewTransactionModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
       <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
         <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <h3 class="text-lg font-medium text-gray-900">New Transaction</h3>
+          <h3 class="text-lg font-medium text-gray-900">{{ isEditing ? 'Edit Transaction' : 'New Transaction' }}</h3>
           <button @click="showNewTransactionModal = false" class="text-gray-400 hover:text-gray-500">
             <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
           </button>
         </div>
         
         <!-- Tabs -->
-        <div class="flex border-b border-gray-200 bg-gray-50">
+        <div v-if="!isEditing" class="flex border-b border-gray-200 bg-gray-50">
           <button @click="activeTab = 'transaction'" class="flex-1 py-3 text-sm font-medium text-center transition" :class="activeTab === 'transaction' ? 'text-blue-600 border-b-2 border-blue-600 bg-white' : 'text-gray-500 hover:text-gray-700'">
             Standard
           </button>
@@ -376,13 +431,20 @@ onMounted(() => {
             </div>
           </template>
           
-          <div class="pt-4 flex justify-end gap-3">
-            <button type="button" @click="showNewTransactionModal = false" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
-              Cancel
+          <div class="pt-4 flex justify-between gap-3">
+            <button v-if="isEditing" type="button" @click="deleteTransaction(editingId as string)" class="px-4 py-2 bg-white border border-rose-300 text-rose-600 rounded-md text-sm font-medium hover:bg-rose-50">
+              Delete
             </button>
-            <button type="submit" :disabled="isSubmitting" class="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
-              Save {{ activeTab === 'transfer' ? 'Transfer' : 'Transaction' }}
-            </button>
+            <div v-else></div> <!-- Spacer -->
+            
+            <div class="flex gap-2">
+              <button type="button" @click="showNewTransactionModal = false" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+                Cancel
+              </button>
+              <button type="submit" :disabled="isSubmitting" class="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+                Save {{ activeTab === 'transfer' ? 'Transfer' : 'Transaction' }}
+              </button>
+            </div>
           </div>
         </form>
       </div>
