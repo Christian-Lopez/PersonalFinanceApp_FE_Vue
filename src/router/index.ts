@@ -24,6 +24,11 @@ const router = createRouter({
       component: CategoriesView
     },
     {
+      path: '/tags',
+      name: 'tags',
+      component: () => import('../views/TagsView.vue')
+    },
+    {
       path: '/transactions',
       name: 'transactions',
       component: TransactionsView

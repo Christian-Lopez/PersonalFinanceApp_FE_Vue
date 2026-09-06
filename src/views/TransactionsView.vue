@@ -11,6 +11,7 @@ const authStore = useAuthStore()
 // State
 const accounts = ref<any[]>([])
 const categories = ref<any[]>([])
+const tags = ref<any[]>([])
 const selectedAccount = ref<any>(null)
 const transactions = ref<any[]>([])
 const isLoading = ref(true)
@@ -26,7 +27,8 @@ const newTransaction = ref({
   type: 2, // Expense
   transactionDate: new Date().toISOString().split('T')[0],
   description: '',
-  categoryId: ''
+  categoryId: '',
+  tagIds: [] as string[]
 })
 
 // Transfer Creation State
@@ -48,13 +50,15 @@ const groupedCategories = computed(() => {
 const loadData = async () => {
   isLoading.value = true
   try {
-    const [accountsRes, categoriesRes] = await Promise.all([
+    const [accountsRes, categoriesRes, tagsRes] = await Promise.all([
       api.get('/accounts'),
-      api.get('/categories')
+      api.get('/categories'),
+      api.get('/tags')
     ])
     
     accounts.value = accountsRes.data
     categories.value = categoriesRes.data
+    tags.value = tagsRes.data
     
     if (accounts.value.length > 0) {
       if (!selectedAccount.value || !accounts.value.find(a => a.id === selectedAccount.value.id)) {
@@ -101,6 +105,7 @@ const createTransaction = async () => {
       transactionDate: new Date(newTransaction.value.transactionDate).toISOString(),
       description: newTransaction.value.description,
       categoryId: newTransaction.value.categoryId || null,
+      tagIds: newTransaction.value.tagIds,
       accountId: selectedAccount.value.id
     })
     
@@ -108,6 +113,7 @@ const createTransaction = async () => {
     newTransaction.value.amount = 0
     newTransaction.value.description = ''
     newTransaction.value.categoryId = ''
+    newTransaction.value.tagIds = []
     
     await loadTransactions(selectedAccount.value.id)
   } catch (err) {
@@ -247,7 +253,14 @@ onMounted(() => {
             </tr>
             <tr v-for="t in transactions" :key="t.id" class="hover:bg-gray-50">
               <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{{ formatDate(t.transactionDate) }}</td>
-              <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900 font-medium">{{ t.description }}</td>
+              <td class="px-6 py-4 text-sm text-gray-900 font-medium">
+                {{ t.description }}
+                <div v-if="t.tags && t.tags.length > 0" class="mt-1 flex flex-wrap gap-1">
+                  <span v-for="tag in t.tags" :key="tag.id" class="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-600">
+                    #{{ tag.name }}
+                  </span>
+                </div>
+              </td>
               <td class="px-6 py-4 whitespace-nowrap text-sm">
                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full" 
                       :class="getTypeBadgeClass(t.type)">
@@ -309,6 +322,14 @@ onMounted(() => {
                   <option v-for="sub in group.children" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
                 </optgroup>
               </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700">Tags</label>
+              <select multiple v-model="newTransaction.tagIds" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500 h-24">
+                <option v-for="tag in tags" :key="tag.id" :value="tag.id">#{{ tag.name }}</option>
+              </select>
+              <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple tags</p>
             </div>
             
             <div>
