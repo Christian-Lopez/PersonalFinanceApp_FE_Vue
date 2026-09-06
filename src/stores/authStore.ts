@@ -26,7 +26,11 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAdmin = computed(() => {
     if (!user.value) return false;
-    const roles = user.value['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
+    const roles = user.value['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] 
+               || user.value['role'] 
+               || user.value['roles'];
+    
+    if (!roles) return false;
     if (Array.isArray(roles)) return roles.includes('Admin');
     return roles === 'Admin';
   });
