@@ -91,10 +91,16 @@ const loadTransactions = async (accountId: string) => {
   }
 }
 
+// UI State
+const selectedParentCategoryId = ref<string>('')
+const showTags = ref(false)
+
 const openCreateModal = () => {
   isEditing.value = false
   editingId.value = null
   activeTab.value = 'transaction'
+  selectedParentCategoryId.value = ''
+  showTags.value = false
   newTransaction.value = {
     amount: 0,
     type: 2,
@@ -110,6 +116,18 @@ const openEditModal = (t: any) => {
   isEditing.value = true
   editingId.value = t.id
   activeTab.value = 'transaction' // Force standard tab for edits
+  
+  // Find parent category to set the first dropdown
+  let parentId = ''
+  if (t.categoryId) {
+    const cat = categories.value.find(c => c.id === t.categoryId)
+    if (cat) {
+      parentId = cat.parentCategoryId ? cat.parentCategoryId : cat.id
+    }
+  }
+  selectedParentCategoryId.value = parentId
+  showTags.value = t.tags && t.tags.length > 0
+  
   newTransaction.value = {
     amount: t.amount,
     type: t.type === 'Income' ? 1 : 2,
@@ -119,6 +137,15 @@ const openEditModal = (t: any) => {
     tagIds: t.tags ? t.tags.map((tag: any) => tag.id) : []
   }
   showNewTransactionModal.value = true
+}
+
+const toggleTag = (tagId: string) => {
+  const index = newTransaction.value.tagIds.indexOf(tagId)
+  if (index === -1) {
+    newTransaction.value.tagIds.push(tagId)
+  } else {
+    newTransaction.value.tagIds.splice(index, 1)
+  }
 }
 
 const submitForm = async () => {
@@ -369,22 +396,41 @@ onMounted(() => {
               </div>
             </div>
             
-            <div>
-              <label class="block text-sm font-medium text-gray-700">Category</label>
-              <select v-model="newTransaction.categoryId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500">
-                <option value="">-- None --</option>
-                <optgroup v-for="group in groupedCategories" :key="group.id" :label="group.name">
-                  <option v-for="sub in group.children" :key="sub.id" :value="sub.id">{{ sub.name }}</option>
-                </optgroup>
-              </select>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Main Category</label>
+                <select v-model="selectedParentCategoryId" @change="newTransaction.categoryId = ''" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500">
+                  <option value="">-- Select --</option>
+                  <option v-for="parent in categories.filter(c => !c.parentCategoryId)" :key="parent.id" :value="parent.id">
+                    {{ parent.name }}
+                  </option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700">Subcategory</label>
+                <select v-model="newTransaction.categoryId" :disabled="!selectedParentCategoryId" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500 disabled:opacity-50 disabled:bg-gray-50">
+                  <option value="">-- None --</option>
+                  <option v-for="sub in categories.filter(c => c.parentCategoryId === selectedParentCategoryId)" :key="sub.id" :value="sub.id">
+                    {{ sub.name }}
+                  </option>
+                </select>
+              </div>
             </div>
 
             <div>
-              <label class="block text-sm font-medium text-gray-700">Tags</label>
-              <select multiple v-model="newTransaction.tagIds" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500 h-24">
-                <option v-for="tag in tags" :key="tag.id" :value="tag.id">#{{ tag.name }}</option>
-              </select>
-              <p class="text-xs text-gray-500 mt-1">Hold Ctrl/Cmd to select multiple tags</p>
+              <div class="flex items-center">
+                <input id="showTags" type="checkbox" v-model="showTags" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                <label for="showTags" class="ml-2 block text-sm font-medium text-gray-700">Add Tags</label>
+              </div>
+              
+              <div v-if="showTags" class="mt-3 flex flex-wrap gap-2">
+                <button type="button" v-for="tag in tags" :key="tag.id"
+                        @click="toggleTag(tag.id)"
+                        class="inline-flex items-center px-3 py-1.5 rounded-full text-sm font-medium transition-colors border"
+                        :class="newTransaction.tagIds.includes(tag.id) ? 'bg-blue-600 border-blue-600 text-white' : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'">
+                  #{{ tag.name }}
+                </button>
+              </div>
             </div>
             
             <div>
