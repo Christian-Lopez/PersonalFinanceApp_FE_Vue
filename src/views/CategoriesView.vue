@@ -21,7 +21,8 @@ const editingId = ref<string | null>(null)
 const newCategory = ref({
   name: '',
   colorHex: '#3B82F6',
-  parentCategoryId: ''
+  parentCategoryId: '',
+  isSystem: false
 })
 
 const loadCategories = async () => {
@@ -39,7 +40,7 @@ const loadCategories = async () => {
 const openCreateModal = () => {
   isEditing.value = false
   editingId.value = null
-  newCategory.value = { name: '', colorHex: '#3B82F6', parentCategoryId: '' }
+  newCategory.value = { name: '', colorHex: '#3B82F6', parentCategoryId: '', isSystem: false }
   showCategoryModal.value = true
 }
 
@@ -49,7 +50,8 @@ const openEditModal = (category: any) => {
   newCategory.value = {
     name: category.name,
     colorHex: category.colorHex || '#3B82F6',
-    parentCategoryId: category.parentCategoryId || ''
+    parentCategoryId: category.parentCategoryId || '',
+    isSystem: category.isSystem
   }
   showCategoryModal.value = true
 }
@@ -69,7 +71,8 @@ const submitCategory = async () => {
     const payload = {
       name: newCategory.value.name,
       colorHex: newCategory.value.colorHex,
-      parentCategoryId: newCategory.value.parentCategoryId || null
+      parentCategoryId: newCategory.value.parentCategoryId || null,
+      isSystem: newCategory.value.isSystem
     }
 
     if (isEditing.value && editingId.value) {
@@ -230,6 +233,16 @@ onMounted(() => {
                   {{ parent.name }} ({{ parent.isSystem ? 'System' : 'Custom' }})
                 </option>
               </select>
+            </div>
+          </div>
+          
+          <div class="flex items-start" v-if="!isEditing || (isEditing && newCategory.isSystem)">
+            <div class="flex h-5 items-center">
+              <input v-model="newCategory.isSystem" id="isSystem" type="checkbox" :disabled="isEditing && newCategory.isSystem" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+            </div>
+            <div class="ml-3 text-sm">
+              <label for="isSystem" class="font-medium text-gray-700">Global System Category</label>
+              <p class="text-gray-500">Make this category available to all users (Admins only).</p>
             </div>
           </div>
           
