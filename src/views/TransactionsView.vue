@@ -18,11 +18,12 @@ const showNewTransactionModal = ref(false)
 
 // Account Creation State
 const newAccount = ref({
-  name: 'Main Checking',
-  type: 1, // Checking
+  name: '',
+  type: 1, // Default to Checking
   currency: 'USD',
   initialBalance: 0
 })
+const showNewAccountModal = ref(false)
 
 // Transaction Creation State
 const newTransaction = ref({
@@ -41,14 +42,23 @@ const loadData = async () => {
     accounts.value = accountsRes.data
     
     if (accounts.value.length > 0) {
-      selectedAccount.value = accounts.value[0]
-      // 2. Fetch Transactions for the first account
+      // If we don't have a selected account or the selected one isn't in the list anymore
+      if (!selectedAccount.value || !accounts.value.find(a => a.id === selectedAccount.value.id)) {
+        selectedAccount.value = accounts.value[0]
+      }
+      // 2. Fetch Transactions for the selected account
       await loadTransactions(selectedAccount.value.id)
     }
   } catch (err) {
     console.error('Error loading data', err)
   } finally {
     isLoading.value = false
+  }
+}
+
+const handleAccountChange = async () => {
+  if (selectedAccount.value) {
+    await loadTransactions(selectedAccount.value.id)
   }
 }
 
@@ -65,6 +75,13 @@ const createAccount = async () => {
   isSubmitting.value = true
   try {
     await api.post('/accounts', newAccount.value)
+    showNewAccountModal.value = false
+    
+    // Reset form
+    newAccount.value.name = ''
+    newAccount.value.type = 1
+    newAccount.value.initialBalance = 0
+    
     await loadData() // Reload everything
   } catch (err) {
     console.error('Error creating account', err)
@@ -128,7 +145,17 @@ onMounted(() => {
       <form @submit.prevent="createAccount" class="space-y-4">
         <div>
           <label class="block text-sm font-medium text-gray-700">Account Name</label>
-          <input v-model="newAccount.name" type="text" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
+          <input v-model="newAccount.name" type="text" placeholder="e.g. Chase Checking" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700">Account Type</label>
+          <select v-model.number="newAccount.type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500">
+            <option :value="1">Checking</option>
+            <option :value="2">Savings</option>
+            <option :value="3">Credit Card</option>
+            <option :value="4">Cash</option>
+            <option :value="5">Investment</option>
+          </select>
         </div>
         <div>
           <label class="block text-sm font-medium text-gray-700">Initial Balance</label>
@@ -146,7 +173,15 @@ onMounted(() => {
       <div class="mb-8 flex justify-between items-end">
         <div>
           <h1 class="text-3xl font-bold text-gray-900">Transactions</h1>
-          <p class="text-gray-500 mt-1">Viewing ledger for <strong>{{ selectedAccount?.name }}</strong></p>
+          <div class="mt-2 flex items-center gap-2">
+            <span class="text-gray-500">Viewing ledger for:</span>
+            <select v-model="selectedAccount" @change="handleAccountChange" class="rounded-md border-gray-300 shadow-sm text-sm py-1 pl-2 pr-8 border focus:border-blue-500 focus:ring-blue-500 font-semibold bg-white text-gray-900">
+              <option v-for="acc in accounts" :key="acc.id" :value="acc">{{ acc.name }}</option>
+            </select>
+            <button @click="showNewAccountModal = true" class="text-sm text-blue-600 hover:text-blue-800 ml-2 font-medium">
+              + New Account
+            </button>
+          </div>
         </div>
         <button @click="showNewTransactionModal = true" class="px-4 py-2 bg-blue-600 text-white rounded-lg shadow-sm text-sm font-medium hover:bg-blue-700 flex items-center gap-2">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
@@ -231,6 +266,48 @@ onMounted(() => {
             </button>
             <button type="submit" :disabled="isSubmitting" class="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
               Save Transaction
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <!-- Modal for New Account -->
+    <div v-if="showNewAccountModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-md overflow-hidden">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
+          <h3 class="text-lg font-medium text-gray-900">Add New Account</h3>
+          <button @click="showNewAccountModal = false" class="text-gray-400 hover:text-gray-500">
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
+        
+        <form @submit.prevent="createAccount" class="p-6 space-y-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Account Name</label>
+            <input v-model="newAccount.name" type="text" placeholder="e.g. Chase Checking" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Account Type</label>
+            <select v-model.number="newAccount.type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500">
+              <option :value="1">Checking</option>
+              <option :value="2">Savings</option>
+              <option :value="3">Credit Card</option>
+              <option :value="4">Cash</option>
+              <option :value="5">Investment</option>
+            </select>
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700">Initial Balance</label>
+            <input v-model.number="newAccount.initialBalance" type="number" step="0.01" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />
+          </div>
+          
+          <div class="pt-4 flex justify-end gap-3">
+            <button type="button" @click="showNewAccountModal = false" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+              Cancel
+            </button>
+            <button type="submit" :disabled="isSubmitting" class="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50">
+              Create Account
             </button>
           </div>
         </form>
