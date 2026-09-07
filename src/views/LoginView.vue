@@ -66,6 +66,18 @@ const handleLogin = async () => {
           {{ isLoading ? 'Logging in...' : 'Log In' }}
         </button>
       </form>
+      
+      <div class="mt-6 flex flex-col items-center space-y-2 text-sm text-gray-600">
+        <router-link to="/forgot-password" class="text-blue-600 hover:underline">
+          Forgot your password?
+        </router-link>
+        <p>
+          Don't have an account? 
+          <router-link to="/register" class="text-blue-600 font-medium hover:underline">
+            Sign up
+          </router-link>
+        </p>
+      </div>
     </div>
   </div>
 </template>

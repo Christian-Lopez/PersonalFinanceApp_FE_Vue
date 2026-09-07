@@ -55,10 +55,46 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function register(userData: any) {
+    error.value = null;
+    try {
+      const response = await api.post('/auth/register', userData);
+      const jwtToken = response.data.token;
+      if (jwtToken) {
+        token.value = jwtToken;
+        localStorage.setItem('token', jwtToken);
+      }
+    } catch (err: any) {
+      error.value = err.response?.data?.errors?.join(', ') || err.response?.data?.title || 'Registration failed.';
+      throw err;
+    }
+  }
+
+  async function forgotPassword(email: string) {
+    error.value = null;
+    try {
+      const response = await api.post('/auth/forgot-password', { email });
+      return response.data; // Includes the token in dev mode
+    } catch (err: any) {
+      error.value = err.response?.data?.errors?.join(', ') || err.response?.data?.title || 'Failed to request password reset.';
+      throw err;
+    }
+  }
+
+  async function resetPassword(data: any) {
+    error.value = null;
+    try {
+      await api.post('/auth/reset-password', data);
+    } catch (err: any) {
+      error.value = err.response?.data?.errors?.join(', ') || err.response?.data?.title || 'Failed to reset password.';
+      throw err;
+    }
+  }
+
   function logout() {
     token.value = null;
     localStorage.removeItem('token');
   }
 
-  return { token, error, isAuthenticated, user, isAdmin, login, logout };
+  return { token, error, isAuthenticated, user, isAdmin, login, register, forgotPassword, resetPassword, logout };
 });
