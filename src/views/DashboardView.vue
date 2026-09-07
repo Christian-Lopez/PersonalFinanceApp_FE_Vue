@@ -18,9 +18,12 @@ const authStore = useAuthStore()
 const summary = ref({ totalIncome: 0, totalExpense: 0, netSavings: 0 })
 const categorySpending = ref<any[]>([])
 const trendData = ref<any[]>([])
+const allCategories = ref<any[]>([])
 
 const isLoading = ref(true)
 const error = ref<string | null>(null)
+
+const pieChartMode = ref<'parents' | 'children'>('parents')
 
 // For the current month
 const currentYear = new Date().getFullYear()
@@ -30,15 +33,17 @@ const loadDashboardData = async () => {
   isLoading.value = true
   error.value = null
   try {
-    const [summaryRes, categoryRes, trendRes] = await Promise.all([
+    const [summaryRes, categoryRes, trendRes, catRes] = await Promise.all([
       api.get(`/reports/monthly-summary?year=${currentYear}&month=${currentMonth}`),
       api.get(`/reports/category-spending?year=${currentYear}&month=${currentMonth}`),
-      api.get(`/reports/trend?months=6`)
+      api.get(`/reports/trend?months=6`),
+      api.get(`/categories`)
     ])
     
     summary.value = summaryRes.data
     categorySpending.value = categoryRes.data
     trendData.value = trendRes.data
+    allCategories.value = catRes.data
   } catch (err) {
     error.value = 'Failed to load dashboard data. Are you logged in?'
     console.error(err)
@@ -49,12 +54,51 @@ const loadDashboardData = async () => {
 
 // Chart Configurations
 const pieChartData = computed(() => {
+  if (pieChartMode.value === 'children') {
+    return {
+      labels: categorySpending.value.map(c => c.categoryName),
+      datasets: [
+        {
+          backgroundColor: categorySpending.value.map(c => c.colorHex || '#808080'),
+          data: categorySpending.value.map(c => c.totalAmount)
+        }
+      ]
+    }
+  }
+
+  // Parent Mode
+  const parentMap = new Map<string, { name: string, color: string, total: number }>()
+
+  categorySpending.value.forEach(spending => {
+    // Find the category in allCategories
+    const cat = allCategories.value.find(c => c.id === spending.categoryId)
+    let parentId = spending.categoryId
+    let parentName = spending.categoryName
+    let parentColor = spending.colorHex
+
+    if (cat && cat.parentCategoryId) {
+      const parent = allCategories.value.find(c => c.id === cat.parentCategoryId)
+      if (parent) {
+        parentId = parent.id
+        parentName = parent.name
+        parentColor = parent.colorHex
+      }
+    }
+
+    if (!parentMap.has(parentId)) {
+      parentMap.set(parentId, { name: parentName, color: parentColor, total: 0 })
+    }
+    parentMap.get(parentId)!.total += spending.totalAmount
+  })
+
+  const aggregated = Array.from(parentMap.values())
+
   return {
-    labels: categorySpending.value.map(c => c.categoryName),
+    labels: aggregated.map(a => a.name),
     datasets: [
       {
-        backgroundColor: categorySpending.value.map(c => c.colorHex || '#808080'),
-        data: categorySpending.value.map(c => c.totalAmount)
+        backgroundColor: aggregated.map(a => a.color || '#808080'),
+        data: aggregated.map(a => a.total)
       }
     ]
   }
@@ -201,7 +245,21 @@ onMounted(() => {
         
         <!-- Category Expenses (Pie) -->
         <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 flex flex-col">
-          <h3 class="text-lg font-bold text-gray-900 mb-4">Expenses by Category</h3>
+          <div class="flex justify-between items-center mb-4">
+            <h3 class="text-lg font-bold text-gray-900">Expenses by Category</h3>
+            <div class="flex bg-gray-100 rounded-lg p-1">
+              <button @click="pieChartMode = 'parents'" 
+                      :class="pieChartMode === 'parents' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'"
+                      class="px-3 py-1 text-xs font-medium rounded-md transition-all">
+                Parents
+              </button>
+              <button @click="pieChartMode = 'children'" 
+                      :class="pieChartMode === 'children' ? 'bg-white shadow-sm text-gray-900' : 'text-gray-500 hover:text-gray-700'"
+                      class="px-3 py-1 text-xs font-medium rounded-md transition-all">
+                Subcategories
+              </button>
+            </div>
+          </div>
           <div v-if="categorySpending.length > 0" class="flex-grow relative min-h-[300px]">
             <Pie :data="pieChartData" :options="pieChartOptions" />
           </div>
