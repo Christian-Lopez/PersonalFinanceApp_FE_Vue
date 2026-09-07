@@ -91,10 +91,20 @@ export const useAuthStore = defineStore('auth', () => {
     }
   }
 
+  async function changePassword(data: any) {
+    error.value = null;
+    try {
+      await api.post('/auth/change-password', data);
+    } catch (err: any) {
+      error.value = err.response?.data?.errors?.join(', ') || err.response?.data?.title || 'Failed to change password.';
+      throw err;
+    }
+  }
+
   function logout() {
     token.value = null;
     localStorage.removeItem('token');
   }
 
-  return { token, error, isAuthenticated, user, isAdmin, login, register, forgotPassword, resetPassword, logout };
+  return { token, error, isAuthenticated, user, isAdmin, login, register, forgotPassword, resetPassword, changePassword, logout };
 });
