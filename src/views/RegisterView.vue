@@ -60,7 +60,7 @@ const handleRegister = async () => {
       <div v-else>
         <p class="text-center text-gray-500 mb-6">Start managing your personal finances</p>
         <form @submit.prevent="handleRegister" class="space-y-4">
-          <div class="grid grid-cols-2 gap-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label class="block text-sm font-medium text-gray-700">First Name</label>
               <input v-model="firstName" type="text" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500" />

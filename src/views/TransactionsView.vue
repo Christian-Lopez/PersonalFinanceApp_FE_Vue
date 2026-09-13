@@ -309,7 +309,7 @@ onMounted(() => {
       </div>
 
       <!-- Transactions Table -->
-      <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-hidden">
+      <div class="bg-white shadow-sm rounded-lg border border-gray-200 overflow-x-auto">
         <table class="min-w-full divide-y divide-gray-200">
           <thead class="bg-gray-50">
             <tr>
@@ -374,7 +374,7 @@ onMounted(() => {
         <form @submit.prevent="submitForm" class="p-6 space-y-4">
           
           <template v-if="activeTab === 'transaction'">
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700">Type</label>
                 <select v-model.number="newTransaction.type" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500">
@@ -388,7 +388,7 @@ onMounted(() => {
               </div>
             </div>
             
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
               <div>
                 <label class="block text-sm font-medium text-gray-700">Main Category</label>
                 <select v-model="selectedParentCategoryId" @change="newTransaction.categoryId = ''" class="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border focus:border-blue-500 focus:ring-blue-500">
@@ -437,7 +437,7 @@ onMounted(() => {
           </template>
 
           <template v-if="activeTab === 'transfer'">
-            <div class="grid grid-cols-2 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label class="block text-sm font-medium text-gray-700">From</label>
                 <input :value="selectedAccount?.name" disabled class="mt-1 block w-full rounded-md border-gray-200 shadow-sm p-2 border bg-gray-50 text-gray-500 cursor-not-allowed" />

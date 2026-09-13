@@ -169,7 +169,7 @@ onMounted(() => {
             </div>
           </div>
           
-          <div class="flex items-start" v-if="!isEditing || (isEditing && newTag.isSystem)">
+          <div class="flex items-start" v-if="authStore.isAdmin && (!isEditing || (isEditing && newTag.isSystem))">
             <div class="flex h-5 items-center">
               <input v-model="newTag.isSystem" id="isSystemTag" type="checkbox" :disabled="isEditing && newTag.isSystem" class="h-4 w-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
             </div>
