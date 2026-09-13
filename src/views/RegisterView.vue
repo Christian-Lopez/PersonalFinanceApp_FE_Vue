@@ -27,6 +27,7 @@ const handleRegister = async () => {
       lastName: lastName.value,
       email: email.value,
       password: password.value,
+      confirmPassword: confirmPassword.value,
       defaultCurrency: 'USD'
     });
     isSuccess.value = true;
