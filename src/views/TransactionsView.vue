@@ -39,14 +39,6 @@ const newTransfer = ref({
   description: ''
 })
 
-const groupedCategories = computed(() => {
-  const parents = categories.value.filter(c => !c.parentCategoryId)
-  return parents.map(parent => ({
-    ...parent,
-    children: categories.value.filter(c => c.parentCategoryId === parent.id)
-  }))
-})
-
 const loadData = async () => {
   isLoading.value = true
   try {
