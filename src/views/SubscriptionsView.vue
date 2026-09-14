@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
 import api from '../lib/api'
 
@@ -10,6 +10,13 @@ const categories = ref<any[]>([])
 const isLoading = ref(true)
 const isSubmitting = ref(false)
 const showNewModal = ref(false)
+
+const selectedParentCategoryId = ref('')
+
+const availableSubcategories = computed(() => {
+  if (!selectedParentCategoryId.value) return []
+  return categories.value.filter(c => c.parentCategoryId === selectedParentCategoryId.value)
+})
 
 const newSubscription = ref({
   amount: 0,
@@ -61,6 +68,24 @@ const submitNewSubscription = async () => {
   }
 }
 
+const handleParentChange = () => {
+  newSubscription.value.categoryId = ''
+}
+
+const openModal = () => {
+  selectedParentCategoryId.value = ''
+  newSubscription.value = {
+    amount: 0,
+    type: 2, // Expense
+    frequency: 3, // Monthly
+    startDate: new Date().toISOString().split('T')[0],
+    description: '',
+    categoryId: '',
+    accountId: accounts.value.length > 0 ? accounts.value[0].id : ''
+  }
+  showNewModal.value = true
+}
+
 const cancelSubscription = async (id: string) => {
   if (!confirm('Are you sure you want to cancel this recurring transaction?')) return
   
@@ -109,7 +134,7 @@ onMounted(() => {
         <button @click="forceRunCatchUp" class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-200 transition font-medium">
           Run Catch-Up
         </button>
-        <button @click="showNewModal = true" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2">
+        <button @click="openModal" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2">
           <span>+ Add Recurring</span>
         </button>
       </div>
@@ -125,7 +150,7 @@ onMounted(() => {
       <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
       <h3 class="text-lg font-medium text-gray-900 mb-2">No active subscriptions</h3>
       <p class="text-gray-500 mb-6">Automate your regular bills or salary deposits.</p>
-      <button @click="showNewModal = true" class="text-blue-600 font-medium hover:text-blue-800">
+      <button @click="openModal" class="text-blue-600 font-medium hover:text-blue-800">
         Create your first recurring transaction &rarr;
       </button>
     </div>
@@ -176,80 +201,88 @@ onMounted(() => {
     </div>
 
     <!-- New Subscription Modal -->
-    <div v-if="showNewModal" class="fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
-      <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
-        <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" @click="showNewModal = false"></div>
-        <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+    <div v-if="showNewModal" class="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div class="bg-white rounded-xl shadow-xl w-full max-w-lg overflow-hidden max-h-[90vh] flex flex-col">
+        <div class="px-6 py-4 border-b border-gray-200 flex justify-between items-center shrink-0">
+          <h3 class="text-lg font-medium text-gray-900">New Recurring Transaction</h3>
+          <button @click="showNewModal = false" class="text-gray-400 hover:text-gray-500">
+            <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+          </button>
+        </div>
         
-        <div class="inline-block align-bottom bg-white rounded-lg text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
-          <form @submit.prevent="submitNewSubscription">
-            <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
-              <h3 class="text-lg leading-6 font-medium text-gray-900 mb-4" id="modal-title">New Recurring Transaction</h3>
-              
+        <form @submit.prevent="submitNewSubscription" class="overflow-y-auto">
+          <div class="p-6 space-y-4">
+            
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+                <select v-model="newSubscription.type" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option :value="2">Expense</option>
+                  <option :value="1">Income</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
+                <input type="number" step="0.01" min="0.01" v-model="newSubscription.amount" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Description (e.g., Netflix)</label>
+              <input type="text" v-model="newSubscription.description" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" />
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Account</label>
+                <select v-model="newSubscription.accountId" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option v-for="acc in accounts" :key="acc.id" :value="acc.id">{{ acc.name }}</option>
+                </select>
+              </div>
               <div class="space-y-4">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
-                    <select v-model="newSubscription.type" class="w-full border border-gray-300 rounded-md p-2">
-                      <option :value="2">Expense</option>
-                      <option :value="1">Income</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Amount</label>
-                    <input type="number" step="0.01" min="0.01" v-model="newSubscription.amount" required class="w-full border border-gray-300 rounded-md p-2" />
-                  </div>
-                </div>
-
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Description (e.g., Netflix)</label>
-                  <input type="text" v-model="newSubscription.description" required class="w-full border border-gray-300 rounded-md p-2" />
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Parent Category (Optional)</label>
+                  <select v-model="selectedParentCategoryId" @change="handleParentChange" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">-- None --</option>
+                    <option v-for="cat in categories.filter(c => !c.parentCategoryId)" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                  </select>
                 </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Account</label>
-                    <select v-model="newSubscription.accountId" required class="w-full border border-gray-300 rounded-md p-2">
-                      <option v-for="acc in accounts" :key="acc.id" :value="acc.id">{{ acc.name }}</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Category (Optional)</label>
-                    <select v-model="newSubscription.categoryId" class="w-full border border-gray-300 rounded-md p-2">
-                      <option value="">-- None --</option>
-                      <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-                    </select>
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
-                    <select v-model="newSubscription.frequency" class="w-full border border-gray-300 rounded-md p-2">
-                      <option :value="1">Daily</option>
-                      <option :value="2">Weekly</option>
-                      <option :value="3">Monthly</option>
-                      <option :value="4">Yearly</option>
-                    </select>
-                  </div>
-                  <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Start / Next Due Date</label>
-                    <input type="date" v-model="newSubscription.startDate" required class="w-full border border-gray-300 rounded-md p-2" />
-                  </div>
+                <div v-if="selectedParentCategoryId">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Subcategory</label>
+                  <select v-model="newSubscription.categoryId" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="" disabled>-- Select Subcategory --</option>
+                    <option v-for="cat in availableSubcategories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                  </select>
                 </div>
               </div>
             </div>
-            <div class="bg-gray-50 px-4 py-3 sm:px-6 flex justify-end gap-3">
-              <button type="button" @click="showNewModal = false" class="bg-white border border-gray-300 rounded-md px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 focus:outline-none">
-                Cancel
-              </button>
-              <button type="submit" :disabled="isSubmitting" class="bg-blue-600 border border-transparent rounded-md px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 focus:outline-none disabled:opacity-50 flex items-center">
-                <svg v-if="isSubmitting" class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg>
-                Save Subscription
-              </button>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Frequency</label>
+                <select v-model="newSubscription.frequency" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                  <option :value="1">Daily</option>
+                  <option :value="2">Weekly</option>
+                  <option :value="3">Monthly</option>
+                  <option :value="4">Yearly</option>
+                </select>
+              </div>
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Start / Next Due Date</label>
+                <input type="date" v-model="newSubscription.startDate" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500" />
+              </div>
             </div>
-          </form>
-        </div>
+          </div>
+          
+          <div class="px-6 py-4 bg-gray-50 border-t border-gray-200 flex justify-end gap-3 shrink-0">
+            <button type="button" @click="showNewModal = false" class="px-4 py-2 bg-white border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50">
+              Cancel
+            </button>
+            <button type="submit" :disabled="isSubmitting" class="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-50 flex items-center">
+              Save Subscription
+            </button>
+          </div>
+        </form>
       </div>
     </div>
   </AppLayout>
