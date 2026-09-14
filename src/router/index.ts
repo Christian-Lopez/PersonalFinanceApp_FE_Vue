@@ -26,7 +26,14 @@ const router = createRouter({
     {
       path: '/tags',
       name: 'tags',
-      component: () => import('../views/TagsView.vue')
+      component: () => import('../views/TagsView.vue'),
+      meta: { requiresAuth: true }
+    },
+    {
+      path: '/subscriptions',
+      name: 'subscriptions',
+      component: () => import('../views/SubscriptionsView.vue'),
+      meta: { requiresAuth: true }
     },
     {
       path: '/transactions',
