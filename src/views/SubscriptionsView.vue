@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted } from 'vue'
 import AppLayout from '../components/AppLayout.vue'
 import api from '../lib/api'
 
@@ -10,6 +10,13 @@ const categories = ref<any[]>([])
 const isLoading = ref(true)
 const isSubmitting = ref(false)
 const showNewModal = ref(false)
+
+const selectedParentCategoryId = ref('')
+
+const availableSubcategories = computed(() => {
+  if (!selectedParentCategoryId.value) return []
+  return categories.value.filter(c => c.parentCategoryId === selectedParentCategoryId.value)
+})
 
 const newSubscription = ref({
   amount: 0,
@@ -61,6 +68,24 @@ const submitNewSubscription = async () => {
   }
 }
 
+const handleParentChange = () => {
+  newSubscription.value.categoryId = ''
+}
+
+const openModal = () => {
+  selectedParentCategoryId.value = ''
+  newSubscription.value = {
+    amount: 0,
+    type: 2, // Expense
+    frequency: 3, // Monthly
+    startDate: new Date().toISOString().split('T')[0],
+    description: '',
+    categoryId: '',
+    accountId: accounts.value.length > 0 ? accounts.value[0].id : ''
+  }
+  showNewModal.value = true
+}
+
 const cancelSubscription = async (id: string) => {
   if (!confirm('Are you sure you want to cancel this recurring transaction?')) return
   
@@ -109,7 +134,7 @@ onMounted(() => {
         <button @click="forceRunCatchUp" class="bg-indigo-100 text-indigo-700 px-4 py-2 rounded-lg hover:bg-indigo-200 transition font-medium">
           Run Catch-Up
         </button>
-        <button @click="showNewModal = true" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2">
+        <button @click="openModal" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition font-medium flex items-center gap-2">
           <span>+ Add Recurring</span>
         </button>
       </div>
@@ -125,7 +150,7 @@ onMounted(() => {
       <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
       <h3 class="text-lg font-medium text-gray-900 mb-2">No active subscriptions</h3>
       <p class="text-gray-500 mb-6">Automate your regular bills or salary deposits.</p>
-      <button @click="showNewModal = true" class="text-blue-600 font-medium hover:text-blue-800">
+      <button @click="openModal" class="text-blue-600 font-medium hover:text-blue-800">
         Create your first recurring transaction &rarr;
       </button>
     </div>
@@ -214,12 +239,21 @@ onMounted(() => {
                   <option v-for="acc in accounts" :key="acc.id" :value="acc.id">{{ acc.name }}</option>
                 </select>
               </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Category (Optional)</label>
-                <select v-model="newSubscription.categoryId" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
-                  <option value="">-- None --</option>
-                  <option v-for="cat in categories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
-                </select>
+              <div class="space-y-4">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Parent Category (Optional)</label>
+                  <select v-model="selectedParentCategoryId" @change="handleParentChange" class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="">-- None --</option>
+                    <option v-for="cat in categories.filter(c => !c.parentCategoryId)" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                  </select>
+                </div>
+                <div v-if="selectedParentCategoryId">
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Subcategory</label>
+                  <select v-model="newSubscription.categoryId" required class="w-full border border-gray-300 rounded-md p-2 focus:ring-blue-500 focus:border-blue-500">
+                    <option value="" disabled>-- Select Subcategory --</option>
+                    <option v-for="cat in availableSubcategories" :key="cat.id" :value="cat.id">{{ cat.name }}</option>
+                  </select>
+                </div>
               </div>
             </div>
 
