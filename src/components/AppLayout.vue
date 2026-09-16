@@ -87,6 +87,11 @@ const closeMobileMenu = () => {
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"></path></svg>
           Tags
         </router-link>
+
+        <router-link v-if="authStore.isAdmin" to="/admin" @click="closeMobileMenu" class="flex items-center gap-3 px-4 py-3 rounded-lg text-orange-300 hover:bg-slate-800 hover:text-orange-100 transition" :class="{ 'bg-orange-600 text-white hover:bg-orange-600': route.name === 'admin' }">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+          Platform Admin
+        </router-link>
       </nav>
       <div class="p-4 border-t border-slate-800 flex flex-col gap-2">
         <router-link to="/settings" @click="closeMobileMenu" class="w-full flex items-center justify-center gap-2 px-4 py-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded-lg transition" :class="{ 'bg-slate-800 text-white': route.name === 'settings' }">
