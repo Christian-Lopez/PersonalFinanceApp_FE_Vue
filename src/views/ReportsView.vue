@@ -21,8 +21,14 @@ const isLoading = ref(true)
 const accounts = ref<any[]>([])
 
 const selectedAccountId = ref<string>('')
-const selectedMonth = ref<number>(new Date().getMonth() + 1)
-const selectedYear = ref<number>(new Date().getFullYear())
+
+// Default to current month range
+const now = new Date()
+const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0)
+
+const startDate = ref<string>(firstDay.toISOString().split('T')[0])
+const endDate = ref<string>(lastDay.toISOString().split('T')[0])
 
 const summary = ref({
   totalIncome: 0,
@@ -32,20 +38,6 @@ const summary = ref({
 
 const categorySpending = ref<any[]>([])
 const trendData = ref<any[]>([])
-
-// Date Options
-const months = [
-  { value: 1, label: 'January' }, { value: 2, label: 'February' },
-  { value: 3, label: 'March' }, { value: 4, label: 'April' },
-  { value: 5, label: 'May' }, { value: 6, label: 'June' },
-  { value: 7, label: 'July' }, { value: 8, label: 'August' },
-  { value: 9, label: 'September' }, { value: 10, label: 'October' },
-  { value: 11, label: 'November' }, { value: 12, label: 'December' }
-]
-const years = computed(() => {
-  const currentYear = new Date().getFullYear()
-  return [currentYear - 2, currentYear - 1, currentYear, currentYear + 1]
-})
 
 // Chart Data Computeds
 const doughnutChartData = computed(() => {
@@ -121,7 +113,7 @@ const loadReports = async () => {
   isLoading.value = true
   try {
     const accountQuery = selectedAccountId.value ? `&accountId=${selectedAccountId.value}` : ''
-    const baseQuery = `?year=${selectedYear.value}&month=${selectedMonth.value}${accountQuery}`
+    const baseQuery = `?startDate=${startDate.value}T00:00:00Z&endDate=${endDate.value}T23:59:59Z${accountQuery}`
     
     const [summaryRes, catRes, trendRes] = await Promise.all([
       api.get(`/reports/monthly-summary${baseQuery}`),
@@ -139,8 +131,10 @@ const loadReports = async () => {
   }
 }
 
-watch([selectedMonth, selectedYear, selectedAccountId], () => {
-  loadReports()
+watch([startDate, endDate, selectedAccountId], () => {
+  if (startDate.value && endDate.value) {
+    loadReports()
+  }
 })
 
 onMounted(async () => {
@@ -158,19 +152,17 @@ onMounted(async () => {
       </div>
       
       <!-- Filters -->
-      <div class="flex flex-wrap gap-3">
+      <div class="flex flex-wrap items-center gap-3">
         <select v-model="selectedAccountId" class="border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm focus:ring-blue-500 focus:border-blue-500 shadow-sm">
           <option value="">All Accounts</option>
           <option v-for="acc in accounts" :key="acc.id" :value="acc.id">{{ acc.name }}</option>
         </select>
         
-        <select v-model="selectedMonth" class="border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm focus:ring-blue-500 focus:border-blue-500 shadow-sm">
-          <option v-for="m in months" :key="m.value" :value="m.value">{{ m.label }}</option>
-        </select>
-        
-        <select v-model="selectedYear" class="border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm focus:ring-blue-500 focus:border-blue-500 shadow-sm">
-          <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
-        </select>
+        <div class="flex items-center gap-2">
+          <input type="date" v-model="startDate" class="border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm focus:ring-blue-500 focus:border-blue-500 shadow-sm" />
+          <span class="text-gray-500 text-sm font-medium">to</span>
+          <input type="date" v-model="endDate" class="border border-gray-300 rounded-lg px-3 py-2 bg-white text-sm focus:ring-blue-500 focus:border-blue-500 shadow-sm" />
+        </div>
       </div>
     </div>
 

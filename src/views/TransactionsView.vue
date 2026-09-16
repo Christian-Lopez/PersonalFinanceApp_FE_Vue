@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, watch, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '../stores/authStore'
 import api from '../lib/api'
@@ -17,6 +17,20 @@ const transactions = ref<any[]>([])
 const isLoading = ref(true)
 const isSubmitting = ref(false)
 const showNewTransactionModal = ref(false)
+
+const selectedMonth = ref<number>(new Date().getMonth() + 1)
+const selectedYear = ref<number>(new Date().getFullYear())
+
+const months = [
+  { value: 1, label: 'January' }, { value: 2, label: 'February' },
+  { value: 3, label: 'March' }, { value: 4, label: 'April' },
+  { value: 5, label: 'May' }, { value: 6, label: 'June' },
+  { value: 7, label: 'July' }, { value: 8, label: 'August' },
+  { value: 9, label: 'September' }, { value: 10, label: 'October' },
+  { value: 11, label: 'November' }, { value: 12, label: 'December' }
+]
+const currentYear = new Date().getFullYear()
+const years = [currentYear - 2, currentYear - 1, currentYear, currentYear + 1]
 
 // Transaction vs Transfer Tab
 const activeTab = ref<'transaction' | 'transfer'>('transaction')
@@ -76,12 +90,18 @@ const handleAccountChange = async () => {
 
 const loadTransactions = async (accountId: string) => {
   try {
-    const res = await api.get(`/transactions/${accountId}`)
+    const res = await api.get(`/transactions/${accountId}?year=${selectedYear.value}&month=${selectedMonth.value}`)
     transactions.value = res.data
   } catch (err) {
     console.error('Error loading transactions', err)
   }
 }
+
+watch([selectedMonth, selectedYear], () => {
+  if (selectedAccount.value) {
+    loadTransactions(selectedAccount.value.id)
+  }
+})
 
 // UI State
 const selectedParentCategoryId = ref<string>('')
@@ -295,10 +315,18 @@ onMounted(() => {
       <div class="mb-8 flex justify-between items-end">
         <div>
           <h1 class="text-3xl font-bold text-gray-900">Transactions</h1>
-          <div class="mt-2 flex items-center gap-2">
+          <div class="mt-2 flex flex-wrap items-center gap-2">
             <span class="text-gray-500">Viewing ledger for:</span>
             <select v-model="selectedAccount" @change="handleAccountChange" class="rounded-md border-gray-300 shadow-sm text-sm py-1 pl-2 pr-8 border focus:border-blue-500 focus:ring-blue-500 font-semibold bg-white text-gray-900">
               <option v-for="acc in accounts" :key="acc.id" :value="acc">{{ acc.name }}</option>
+            </select>
+            
+            <select v-model="selectedMonth" class="rounded-md border-gray-300 shadow-sm text-sm py-1 pl-2 pr-8 border focus:border-blue-500 focus:ring-blue-500 font-semibold bg-white text-gray-900">
+              <option v-for="m in months" :key="m.value" :value="m.value">{{ m.label }}</option>
+            </select>
+
+            <select v-model="selectedYear" class="rounded-md border-gray-300 shadow-sm text-sm py-1 pl-2 pr-8 border focus:border-blue-500 focus:ring-blue-500 font-semibold bg-white text-gray-900">
+              <option v-for="y in years" :key="y" :value="y">{{ y }}</option>
             </select>
           </div>
         </div>
